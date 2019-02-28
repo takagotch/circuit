@@ -157,25 +157,55 @@ h.MustCreateCircuit("v1")
 fmt.Println("The timeout o f v1 is", h.GetCircuit("v1").Config().Execution.Timeout)
 
 // StatsD configuration factory
+f := statsdmetrics.CommandFactory{
+  SubStatter: &statsd.NoopClient{},
+}
+
+h := circuit.Manager{
+  DefualtCircuitProperties: []circuit.CommandPropertiesConstructor{f.CommandProperties},
+}
+
+h.MustCreateCircuit("using-statsd")
 
 
+sloTrackerFactory := responsetimeslo.Factory {
+  Config: responsetimeslo.Config {
+    MaximumhealthyTime: time.Millisecond * 20,
+  },
+  
+  CollectorConstrucotrs: nil,
+}
+h := circuit.Manager{
+  DefaultCircuitProperties: []circuit.CommandPropertiesConstructor{sloTrackerFactory.CommandProperties},
+}
+h.CreateCircuit("circuit-with-slo")
 
 
-
-
-
-
-
-
-
-
-
-
-
-
+c := circuit.NewCircuitFromConfig("divider", circuit.Config{})
+divideInCircuit := func(numrator, denominator int) (int, error) {
+  var result int
+  err := c.Run(context.Background(), func(ctx context.Context) error {
+    if denominator == 0 {
+      
+      return &circuit.SimpleBadRequest{
+        Err: errors.New("someone tried to divide by zero"),
+      }
+    }
+    result = numerator / denominator
+    return nil
+  })
+  return result, err
+}
+_, err := divideInCircuit(10, 0)
+fmt.Println("Result of 10/0 is", err)
 ```
 
-```
+```sh
+make bench
+cd benchmarking && go test -v -benchmem -run=^$ -bench=. . 2> /dev/null
+
+make run
+go run example/main.go
 ```
 
 ```
